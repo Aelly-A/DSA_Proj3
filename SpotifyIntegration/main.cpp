@@ -2,9 +2,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
+//This code takes in the song title and artist and inputs them into the python code which links with spotify and prints out the associated song link and image.
 int main(){
-    // Replace with your actual song title and artist
+    // Replace with the actual song title and artist
     const char* song_name = "Despacito";
     const char* artist = "Luis Fonsi";
     // Construct the JSON input
