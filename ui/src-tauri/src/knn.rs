@@ -1,42 +1,62 @@
 use std::collections::{HashMap, BTreeSet};
-use rand::Rng;
 
-use crate::types::TrackPoint;
+use crate::types::{TrackPoint, AbstractKNN, Neighbor};
 
-pub struct KNNMap {
+pub struct PointMap {
     points: HashMap<String, TrackPoint>, // Track ID -> TrackPoint
-    start_point: Option<TrackPoint>,
     ignore: Vec<String>
 }
 
-struct TPDistanceWrapper {
-    dist: f64,
-    tp: TrackPoint
-}
-
-impl PartialOrd for TPDistanceWrapper {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for TPDistanceWrapper {
-    fn eq(&self, other: &Self) -> bool {
-        self.dist == other.dist
-    }
-}
-
-impl Eq for TPDistanceWrapper {}
-
-impl Ord for TPDistanceWrapper {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.dist == other.dist {
-            std::cmp::Ordering::Equal
-        } else if self.dist > other.dist {
-            std::cmp::Ordering::Greater
-        } else {
-            std::cmp::Ordering::Less
+impl PointMap {
+    pub fn new() -> Self {
+        return Self {
+            points: HashMap::new(),
+            ignore: Vec::new()
         }
+    }
+}
+
+impl AbstractKNN for PointMap {
+    fn insert(&mut self, point: TrackPoint) {
+        self.points.insert(point.id.clone(), point);
+    }
+
+    fn size(&self) -> usize {
+        return self.points.len();
+    }
+
+    // This function is O(nlog(n))
+    fn nearest_neighbors(&self, point: &TrackPoint, k: usize) -> Vec<TrackPoint> {
+        // First let's grab info about the starting point.
+        let start = point;
+
+        // Create a sorted set. (Inserts are O(log(n)))
+        let mut set: BTreeSet<Neighbor> = BTreeSet::new();
+
+        for pair in self.points.iter() {
+            let (id, tp) = pair;
+            let id = id.clone();
+            if id == start.id || self.ignore.contains(&id) {
+                continue;
+            }
+
+            set.insert(Neighbor { distance: distance(tp.x, start.x, tp.y, start.y), point: tp.clone() });
+        }
+
+        // Now grab first k members of sorted set.
+        return set.iter().take(k).map(|x| x.point.clone()).collect()
+    }
+
+    fn add_ignore(&mut self, id: String) {
+        self.ignore.push(id);
+    }
+
+    fn ignore_size(&self) -> usize {
+        self.ignore.len()
+    }
+
+    fn pop_ignore(&mut self) {
+        self.ignore.pop();
     }
 }
 
@@ -44,58 +64,85 @@ fn distance(x1: f64, x2: f64, y1: f64, y2: f64) -> f64 {
     ((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt()
 }
 
-impl KNNMap {
-    pub fn add_point(&self, track_point: TrackPoint) {
-        if self.start_point.is_none() {
-            self.start_point = Some(track_point.clone());
-        } else if rand::thread_rng().gen_range(0..100) == 25 {
-            self.start_point = Some(track_point.clone());
-        };
-        self.points.insert(track_point.id.clone(), track_point);
+#[cfg(test)]
+mod tests {
+    use crate::types::{TrackPoint, AbstractKNN};
+
+    use super::PointMap;
+
+    #[test]
+    fn test_map_creation() {
+        let mut map = PointMap::new();
+
+        map.insert(TrackPoint{
+            x: 12.0,
+            y: 6.0,
+            duration_ms: 1000,
+            explicit: false,
+            name: "".into(),
+            id: "test1".into(),
+            artists: Vec::new(),
+        });
+
+        map.insert(TrackPoint{
+            x: 10.0,
+            y: 6.0,
+            duration_ms: 1000,
+            explicit: false,
+            name: "".into(),
+            id: "test2".into(),
+            artists: Vec::new(),
+        });
+
+        assert_eq!(map.size(), 2);
     }
 
-    pub fn starting_point(&self) -> Option<TrackPoint> {
-        self.start_point.clone()
-    }
+    #[test]
+    fn test_aknn() {
+        let mut map = PointMap::new();
 
-    pub fn add_ignore(&self, id: String) {
-        self.ignore.push(id);
-    }
+        map.insert(TrackPoint{
+            x: 12.0,
+            y: 6.0,
+            duration_ms: 1000,
+            explicit: false,
+            name: "".into(),
+            id: "test1".into(),
+            artists: Vec::new(),
+        });
 
-    pub fn ignore_size(&self) -> usize {
-        self.ignore.len()
-    }
+        map.insert(TrackPoint{
+            x: 10.0,
+            y: 6.0,
+            duration_ms: 1000,
+            explicit: false,
+            name: "".into(),
+            id: "test2".into(),
+            artists: Vec::new(),
+        });
 
-    pub fn pop_ignore(&self) {
-        self.ignore.pop();
-    }
+        map.insert(TrackPoint{
+            x: 24.0,
+            y: 6.0,
+            duration_ms: 1000,
+            explicit: false,
+            name: "".into(),
+            id: "test3".into(),
+            artists: Vec::new(),
+        });
 
-    pub fn k_nearest_neighbors(&self, start: String, k: usize) -> Vec<TrackPoint> {
-        // First let's grab info about the starting point.
-        let start = self.points.get(&start);
+        assert_eq!(map.size(), 3);
 
-        if start.is_some() {
-            // Unwrap.
-            let start = start.unwrap();
+        let out = map.nearest_neighbors(&TrackPoint{
+            x: 10.0,
+            y: 6.0,
+            duration_ms: 1000,
+            explicit: false,
+            name: "".into(),
+            id: "test3".into(),
+            artists: Vec::new(),
+        }, 2);
 
-            // Create a sorted map. (Inserts are O(log(n)))
-            let mut set: BTreeSet<TPDistanceWrapper> = BTreeSet::new();
-
-            for pair in self.points.iter() {
-                let (id, tp) = pair;
-                let id = id.clone();
-                if id == start.id || self.ignore.contains(&id) {
-                    continue;
-                }
-
-                set.insert(TPDistanceWrapper { dist: distance(tp.x, start.x, tp.y, start.y), tp: tp.clone() });
-            }
-
-            // Now grab first k members of sorted set.
-            return set.iter().take(k).map(|x| x.tp).collect()
-        }
-
-        // Return nothing.
-        Vec::new()
+        assert_eq!(out.len(), 2);
     }
 }

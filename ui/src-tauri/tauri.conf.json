@@ -35,8 +35,8 @@
     "windows": [
       {
         "fullscreen": false,
-        "resizable": true,
-        "title": "p3",
+        "resizable": false,
+        "title": "DSA Project 3",
         "width": 800,
         "height": 600
       }
