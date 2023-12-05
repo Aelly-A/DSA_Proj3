@@ -81,6 +81,7 @@ pub fn load_kd_tree() -> std::io::Result<KDTree> {
     return Ok(m);
 }
 
+// Generally represents "Funk", or how much energy is in this music.
 fn calculate_x(record: &CSVRecord) -> f64 {
     return (
         record.valence +
@@ -90,6 +91,7 @@ fn calculate_x(record: &CSVRecord) -> f64 {
     ) / 4.0
 }
 
+// Generally represents "Acousticness", or how accoustic this song is,
 fn calculate_y(record: &CSVRecord) -> f64 {
     return (
         record.instrumentalness +

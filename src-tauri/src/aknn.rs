@@ -85,17 +85,20 @@ impl KDTree {
         Some(Box::new(node))
     }
 
-    // Recursively iterates through the tree searching for a point
+    // Recursively iterates through the tree searching for nearest neighbors
     fn nearest_neighbors_rec(&self, node: &Option<Box<KDTreeNode>>, point: &TrackPoint, depth: usize, k: usize, heap: &mut BinaryHeap<Neighbor>) {
         if let Some(n) = node {
             let distance = self.distance(&n.point, point);
             // Constantly push and pop off of the heap to create a rolling window of points, only keeping the smallest distance neighbors.
             if heap.len() < k || distance < heap.peek().unwrap().distance {
                 // Pop off this largest distance value to fit a lower distance value.
-                if heap.len() == k {
-                    heap.pop();
+                if !self.ignore.contains(&n.point.id) {
+                    if heap.len() == k {
+                        heap.pop();
+                    }
+                
+                    heap.push(Neighbor { distance, point: n.point.clone() });
                 }
-                heap.push(Neighbor { distance, point: n.point.clone() });
             }
 
             // Determine what the next branch should be by figuring out whether the current node is smaller or larger than the reference point.

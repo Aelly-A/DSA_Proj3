@@ -88,8 +88,8 @@ fn get_timing(state: tauri::State<GlobalState>) -> u128 {
 
 fn main() -> std::io::Result<()> {
     let state = GlobalState(Mutex::new(KNNType::STANDARD(load_pointmap()?)), Mutex::new(TrackPoint{
-        x: 0.1,
-        y: 0.1,
+        x: 0.9,
+        y: 0.3,
         duration_ms: 0,
         explicit: false,
         name: "".into(),
